@@ -53,7 +53,7 @@ ifeq ($(x86_64),1)
 endif
 
 # Location of the CUDA Toolkit binaries and libraries
-CUDA_PATH       ?= /opt/cuda5
+CUDA_PATH       ?= /usr/local/cuda-7.5
 CUDA_INC_PATH   ?= $(CUDA_PATH)/include
 CUDA_BIN_PATH   ?= $(CUDA_PATH)/bin
 ifneq ($(DARWIN),)
@@ -68,7 +68,7 @@ endif
 
 # Common binaries
 NVCC            ?= $(CUDA_BIN_PATH)/nvcc
-GCC             ?= g++
+GCC             ?= nvcc
 
 # Extra user flags
 EXTRA_NVCCFLAGS ?= 
@@ -99,8 +99,7 @@ endif
 
 
 # Linux specific libraries and paths to include
-LIBPATH_OPENGLL  := -L/opt/cuda5/samples/common/lib/linux/$(OS_ARCH) -L/usr/X11R6/lib -lGL -lGLU -lX11 -lXi -lXmu -lglut /opt/cuda5/samples/common/lib/linux/x86_64/libGLEW.a
-LIBPATH_OPENGL  :=  -lGL -lGLU -lglut /opt/cuda5/samples/common/lib/linux/x86_64/libGLEW.a
+LIBPATH_OPENGL  :=  -lGL -lGLU -lglut $(CUDA_PATH)/samples/common/lib/linux/x86_64/libGLEW.a
 
 
 # Debug build flags
