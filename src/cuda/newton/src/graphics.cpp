@@ -1,16 +1,27 @@
-#include "common.hpp"
 #include "graphics.hpp"
 
-
-extern int update(int);
-
 GLuint dataBufferID;
+extern void update(int);
 
-Renderer::Renderer(Params sp, Simulator* simtor) {
+Renderer::Renderer(Params sp, Simulator* simulator_ptr)
+    : sim_params{sp},
+      radius_data{new float[sp.sim_N]},
+      rgb_data{new float[3 * sp.sim_N]} {
+
+	size_t i_d = 0;
+	for (size_t i = 0; i < sim_params.sim_N;
+	     i++, i_d = i * sim_params.sim_DIM) {
+		radius_data[i] = 1.;
+		rgb_data[i_d] = 1;
+		rgb_data[i_d + 1] = 1;
+		rgb_data[i_d + 2] = 1;
+	}
+
+	simulator = simulator_ptr;
+
 	disp_0 = 1;
 	simulation_started = 0;
-	sim_ptr = simtor;
-	// GL stuff
+
 	angle_x = 0;
 	angle_y = 0;
 	z_translate = -20.0f;
@@ -18,14 +29,16 @@ Renderer::Renderer(Params sp, Simulator* simtor) {
 	y_translate = 0.0f;
 }
 
-// Initializes 3D rendering
-void Renderer::update(int value) {
-	// calculate particles
-	launch_kernel<< sim_params.NUM_BLOCKS, sim_params.NUM_THREADS>>(sim_ptr);
-	// unmap buffer object
-	glutPostRedisplay();
-	glutTimerFunc(milisec, update, 0);
+/**
+ *  Creates a singleton instance of renderer!
+ *
+ */
+Renderer* Renderer::get_singleton(Params par, Simulator* sim) {
+	static Renderer* instance = new Renderer(par, sim);
+	return instance;
 }
+
+// Initializes 3D rendering
 void Renderer::init_graphics() {
 	// Makes 3D drawing work when something is in front of something else
 	// OpenGL initialization stuff
@@ -39,14 +52,14 @@ void Renderer::init_graphics() {
 	// setup the view port and coord system
 	glViewport(0, 0, w, h);
 	glMatrixMode(GL_PROJECTION);  // Switch to setting the camera
-				      // perspective
+	// perspective
 
 	// Set the camera perspective
-	glLoadIdentity();  // Reset the camera
-	gluPerspective(45.0,  // The camera angle
+	glLoadIdentity();		     // Reset the camera
+	gluPerspective(45.0,		     // The camera angle
 		       (float)w / (float)h,  // The width-to-height ratio
-		       1.0,  // The near z clipping coordinate
-		       2000.0);  // The far z clipping coordinate
+		       1.0,		     // The near z clipping coordinate
+		       2000.0);		     // The far z clipping coordinate
 }
 
 // Draws the 3D scene
@@ -57,7 +70,7 @@ void Renderer::draw_scene()  // Clear information from last draw
 	glClearColor(0.0, 0.0, 0.0, 1.0);
 
 	glMatrixMode(GL_MODELVIEW);  // Switch to the drawing perspective
-	glLoadIdentity();  // Reset the drawing perspective
+	glLoadIdentity();	    // Reset the drawing perspective
 
 	glTranslatef(x_translate, y_translate, z_translate);
 	glRotatef(angle_x, 1, 0, 0.0f);
@@ -65,24 +78,51 @@ void Renderer::draw_scene()  // Clear information from last draw
 
 	// map the data stored in the OpenGL buffer to our databuffer!
 	GLfloat* data = nullptr;
-	
+
 	// if display alO!
 	if (disp_0 == 1) {
 		// loop over all particles and drow then as spheres
-		for (size_t i = 0; i < sim_params.sim_N * sim_params.sim_DIM;i+=sim_params.sim_DIM) {
-			
+		size_t i_d = 0;
+		size_t i_c = 0;
+		for (size_t i = 0; i < sim_params.sim_N; i++) {
 			glPushMatrix();
-			glColor3f(1,1,1); // contain colors here 
-			for( size_t d = 0;d<sim_params.sim_DIM;d++) // contian position here
-					glTranslatef(*(data + i), 0.0, -5.0f);
-			GLdouble radius = 1.0;	
-			glutSolidSphere(radius,15, 15);
+
+			i_c = i * 3;
+			i_d = i * sim_params.sim_DIM;
+
+			glColor3f(rgb_data[i_c], rgb_data[i_c + 1],
+				  rgb_data[i_c + 2]);
+			switch (sim_params.sim_DIM): {
+					case 1: {
+						glTranslatef(data[i_d], 0.0,
+							     -5f);
+						break;
+					}
+					case 2: {
+						glTranslatef(data[i_d],
+							     data[i_d + 1],
+							     -5.0f);
+						break;
+					}
+					case 3: {
+						glTranslatef(data[i_d],
+							     data[i_d + 1],
+							     data[id + 2]);
+						break;
+					}
+					default: {}
+				}
+			GLdouble radius = radius_data[i];
+			glutSolidSphere(radius, 15, 15);
 			glPopMatrix();
 		}  // for loop
 	}
 	glutSwapBuffers();  // Send the 3D scene to the screen
 }
 
+/**
+ * Keyboard control routines
+ */
 void Renderer::keyboard_navigator(int key, int x, int y) {
 	switch (key) {
 		case GLUT_KEY_DOWN: {
@@ -110,7 +150,7 @@ void Renderer::keyboard_navigator(int key, int x, int y) {
 		}
 		case GLUT_KEY_F1: {
 			if (simulation_started == 0)
-				glutTimerFunc(milisec, &simulate, 0);
+				glutTimerFunc(sim_params.display_dt, update, 0);
 			break;
 		}
 
@@ -118,7 +158,6 @@ void Renderer::keyboard_navigator(int key, int x, int y) {
 			// do nothing
 		}
 	}
-
 	glutPostRedisplay();
 }
 
@@ -143,23 +182,21 @@ void Renderer::handle_keypress(unsigned char key, int x, int y) {
 			y_translate -= dist;
 			break;
 		case 'h':
-			var_params.heateffect_sim += 0.05;
-			// cudaMemcpy(var_params_d,&vpar_h,sizeof(VarParams),cudaMemcpyHostToDevice);
-			// setVarParams<<<NUM_BLOCKS,NUM_THREADS>>>(vpar_d);
+			sim_params.temp += 0.05;
+			cudaMemcpy(&sim_params, &simulator->params_d,
+				   sizeof(Params), cudaMemcpyHostToDevice);
 			break;
 		case 'c':
-			var_params.heateffect_sim -= 0.05;
-			// if(vpar_h.heateffect_sim <0)
-			//         vpar_h.heateffect_sim = 0;
-			//  cudaMemcpy(vpar_d,&vpar_h,sizeof(VarParams),cudaMemcpyHostToDevice);
-			//  setVarParams<<<NUM_BLOCKS,NUM_THREADS>>>(vpar_d);
+			sim_params.temp -= 0.05;
+			cudaMemcpy(&sim_params, &simulator->params_d,
+				   sizeof(Params), cudaMemcpyHostToDevice);
+
 			break;
 		case 'i':
-			var_params.dt_sim = -var_params.dt_sim;
-			// cudaMemcpy(vpar_d,&vpar_h,sizeof(VarParams),cudaMemcpyHostToDevice);
-			// setVarParams<<<NUM_BLOCKS,NUM_THREADS>>>(vpar_d);
+			sim_params.sim_dt = -sim_params.sim_dt;
+			cudaMemcpy(&sim_params, &simulator->params_d,
+				   sizeof(Params), cudaMemcpyHostToDevice);
 			break;
-
 		case '0':
 			disp_0 = -1 * disp_0;
 			break;
@@ -173,11 +210,11 @@ void Renderer::handle_resize(int w, int h) {
 	// Tell OpenGL how to convert from coordinates to pixel values
 	glViewport(0, 0, w, h);
 	glMatrixMode(GL_PROJECTION);  // Switch to setting the camera
-				      // perspective
+	// perspective
 	// Set the camera perspective
-	glLoadIdentity();  // Reset the camera
-	gluPerspective(45.0,  // The camera angle
+	glLoadIdentity();		     // Reset the camera
+	gluPerspective(45.0,		     // The camera angle
 		       (float)w / (float)h,  // The width-to-height ratio
-		       1.0,  // The near z clipping coordinate
-		       200.0);  // The far z clipping coordinate
+		       1.0,		     // The near z clipping coordinate
+		       200.0);		     // The far z clipping coordinate
 }

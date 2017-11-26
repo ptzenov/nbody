@@ -10,11 +10,14 @@
 #include "common.hpp"
 #include "simulation.hpp"
 
+KERNEL void launch_simulation_kernel(Simulator* simulator, int val) {
+	simulator->make_step();
+}
+
 class Renderer {
 
        public:
-	Renderer(Params, Simulator * in_simulator);
-
+	static	Renderer* get_singleton(Params, Simulator*);
 	// Initializes 3D rendering
 	void init_graphics();
 	// Draws the 3D scene
@@ -24,11 +27,21 @@ class Renderer {
 
 	// Called when the window is resized
 	void handle_resize(int w, int h);
-	void update(int);
-	
+	void make_step(int val) {
+		launch_simulation_kernel
+			<<<sim_params.NUM_BLOCKS, sim_params.NUM_THREADS>>>
+		    (simulator, val);
+	}
+
        private:
+	Renderer(Params, Simulator* in_simulator);
+	
+	std::unique_ptr<float []> radius_data; 
+	std::unique_ptr<float []> rgb_data;
+
+
 	Params sim_params;
-	Simulator* sim_ptr;
+	Simulator* simulator;
 
 	int disp_0;
 	int simulation_started;
