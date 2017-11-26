@@ -41,7 +41,7 @@ int main(int argc, char** argv)
         glutCreateWindow("Nbody Simulation");
 	std::cout<<"Initializing Graphics"<<std::endl;
 	//Set handler functions for drawing, keypresses, and window resizes
-	renderer = new Renderer();
+	renderer = new Renderer(sim_params);
 
         glutDisplayFunc(draw_scene);
         glutKeyboardFunc(handle_keypress);

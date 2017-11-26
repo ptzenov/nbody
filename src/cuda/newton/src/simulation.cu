@@ -1,5 +1,17 @@
 #include "simulation.hpp"
 #include "common.hpp"
+#include <algorithm>
+
+// to be launched from one thread! 
+KERNEL void init_simulator(Simulator * simulator, Params params)
+{
+	simulator = Simulator::get_singleton(params);
+}
+
+KERNEL void launch_kernel(Simulator const * simulator)
+{
+;
+}	
 
 void fillVBOCuda()
 {
