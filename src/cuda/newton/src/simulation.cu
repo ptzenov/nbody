@@ -19,7 +19,8 @@ DEVICE void Simulator::make_step() {
 	int i = blockIdx.x * blockDim.x + threadIdx.x;
 
 	if (i < params_d.sim_N) {
-		if (mode == 0) updateX(i);
+		if (mode == 0)
+		       	updateX(i);
 
 		if (mode == 1) {
 			float Fold[3];
@@ -37,7 +38,7 @@ DEVICE void Simulator::updateX(size_t i) {
 	float f = params_d.sim_dt * params_d.sim_dt / (2 * mass_data.get()[i]);
 	int idx = i * params_d.sim_DIM;
 	for (size_t d = 0; d < params_d.sim_DIM; d++)
-		position_data.get()[idx + d] +=
+		position_data[idx + d] +=
 		    params_d.sim_dt * velocity_data.get()[idx + d] +
 		    f * force_data.get()[idx + d];
 }
@@ -62,16 +63,16 @@ DEVICE void Simulator::applyForce(size_t i, size_t j) {
 	int idx_i = i * params_d.sim_DIM;
 	int idx_j = j * params_d.sim_DIM;
 	for (size_t d = 0; d < params_d.sim_DIM; d++)
-		r += sqr(position_data.get()[idx_j + d] -
-			 position_data.get()[idx_i + d]);  // radius length
+		r += sqr(position_data[idx_j + d] -
+			 position_data[idx_i + d]);  // radius length
 
 	r += EPS2;
 	float f = k / (sqrt(r) * r);
 	// update the force on particle i with the force exerted by particle j
 	for (int d = 0; d < params_d.sim_DIM; d++)
 		force_data.get()[idx_i + d] +=
-		    f * (position_data.get()[idx_j + d] -
-			 position_data.get()[idx_i + d]);
+		    f * (position_data[idx_j + d] -
+			 position_data[idx_i + d]);
 }
 
 DEVICE void Simulator::updateV(size_t i, float Fold[3]) {
@@ -94,11 +95,10 @@ DEVICE void Simulator::init_data() {
 	curand_init(seed, i, 0, &state);
 
 	for (int d = 0; d < params_d.sim_DIM; d++) {
-		position_data.get()[i_d + d] =
+		position_data[i_d + d] =
 		    (float(curand_uniform(&state)) - 0.5) * 20;
 		velocity_data.get()[i_d + d] = 0;
 		force_data.get()[i_d + d] = 0;
 	}
-
 	mass_data.get()[i] = 10;  // make the mass proportional to the volume
 }

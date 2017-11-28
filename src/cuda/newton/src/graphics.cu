@@ -1,15 +1,18 @@
 #include "graphics.hpp"
+#include "iostream"
 
-KERNEL void launch_simulation_kernel(Simulator* sim, int val) { sim->make_step(); }
-
-GLuint dataBufferID;
+KERNEL void launch_simulation_kernel(Simulator* sim, float* position_data,
+				     int val) {
+	sim->set_position_data(position_data);
+	sim->make_step();
+}
 extern void update(int);
 
 Renderer::Renderer(Params sp, Simulator* simulator_ptr)
-    : sim_params{sp},
+    : sim_params(sp),
       radius_data{new float[sp.sim_N]},
       rgb_data{new float[3 * sp.sim_N]} {
-
+	sim_params.print_params();	
 	size_t i_d = 0;
 	for (size_t i = 0; i < sim_params.sim_N;
 	     i++, i_d = i * sim_params.sim_DIM) {
@@ -20,7 +23,7 @@ Renderer::Renderer(Params sp, Simulator* simulator_ptr)
 	}
 
 	simulator = simulator_ptr;
-
+	std::cout<<"Constructor" << std::endl;
 	disp_0 = 1;
 	simulation_started = 0;
 
@@ -29,16 +32,27 @@ Renderer::Renderer(Params sp, Simulator* simulator_ptr)
 	z_translate = -20.0f;
 	x_translate = 0.0f;
 	y_translate = 0.0f;
-}
-
-/**
- *  Creates a singleton instance of renderer!
- *
- */
-Renderer* Renderer::get_singleton(Params par, Simulator* sim) {
-	static Renderer* instance = new Renderer(par, sim);
-	return instance;
-}
+	/** is the cuda resource mapped to the OPENGL buffer??
+	*
+	*/
+	resource_mapped = false;
+	buffer_ID = 1;
+	// size of opengl/cuda buffer (in bytes)
+	buffer_size =
+	    (GLuint)sim_params.sim_N * sim_params.sim_DIM * sizeof(float);
+	glGenBuffers(1, &buffer_ID);
+	DBG_MSG;
+	glBindBuffer(GL_ARRAY_BUFFER, buffer_ID);
+	DBG_MSG;
+	glBufferData(GL_ARRAY_BUFFER, buffer_size, 0,
+		     GL_DYNAMIC_DRAW);  // allocate memory for the buffer
+	DBG_MSG;
+	glBindBuffer(GL_ARRAY_BUFFER, 0);  // unbind the buffer
+	DBG_MSG;
+	cudaGraphicsGLRegisterBuffer(
+	    &buffer_resource, buffer_ID,
+	    cudaGraphicsRegisterFlagsNone);  // register the gl buffer with cuda
+      }
 
 // Initializes 3D rendering
 void Renderer::init_graphics() {
@@ -51,6 +65,7 @@ void Renderer::init_graphics() {
 
 	int w = 400;
 	int h = 400;
+
 	// setup the view port and coord system
 	glViewport(0, 0, w, h);
 	glMatrixMode(GL_PROJECTION);  // Switch to setting the camera
@@ -78,11 +93,14 @@ void Renderer::draw_scene()  // Clear information from last draw
 	glRotatef(angle_x, 1, 0, 0.0f);
 	glRotatef(angle_y, 0, 1, 0.0f);
 
-	// map the data stored in the OpenGL buffer to our databuffer!
-	GLfloat* data = nullptr;
-
 	// if display alO!
 	if (disp_0 == 1) {
+		// map the data stored in the OpenGL buffer to our databuffer!
+		glBindBuffer(GL_ARRAY_BUFFER, buffer_ID);
+		// map the data stored in the OpenGL buffer to our databuffer!
+		GLfloat* data =
+		    (GLfloat*)glMapBuffer(GL_ARRAY_BUFFER, GL_READ_WRITE);
+
 		// loop over all particles and drow then as spheres
 		size_t i_d = 0;
 		size_t i_c = 0;
@@ -94,31 +112,28 @@ void Renderer::draw_scene()  // Clear information from last draw
 
 			glColor3f(rgb_data[i_c], rgb_data[i_c + 1],
 				  rgb_data[i_c + 2]);
-			/*
-			   switch (sim_params.sim_DIM): {
-					case 1: {
-						glTranslatef(data[i_d], 0.0,
-							     -5f);
-						break;
-					}
-					case 2: {
-						glTranslatef(data[i_d],
-							     data[i_d + 1],
-							     -5.0f);
-						break;
-					}
-					case 3: {
-						glTranslatef(data[i_d],
-							     data[i_d + 1],
-							     data[id + 2]);
-						break;
-					}
-					default: {;}
-				}*/
+			switch (sim_params.sim_DIM) {
+				case 1: {
+					glTranslatef(data[i_d], 0.0, -5.0f);
+					break;
+				}
+				case 2: {
+					glTranslatef(data[i_d], data[i_d + 1],
+						     -5.0f);
+					break;
+				}
+				case 3: {
+					glTranslatef(data[i_d], data[i_d + 1],
+						     data[i_d + 2]);
+					break;
+				}
+				default: { ; }
+			}
 			GLdouble radius = radius_data[i];
 			glutSolidSphere(radius, 15, 15);
 			glPopMatrix();
-		}  // for loop
+		}				   // for loop
+		glBindBuffer(GL_ARRAY_BUFFER, 0);  // unmap the data buffer
 	}
 	glutSwapBuffers();  // Send the 3D scene to the screen
 }

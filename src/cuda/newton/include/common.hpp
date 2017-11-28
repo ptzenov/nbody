@@ -12,7 +12,6 @@
 #include <cuda.h>
 #include <cuda_runtime_api.h>
 
-
 /////////////////NBODY///////////////
 #define G 1  // gravitational constant
 #define sqr(x) ((x) * (x))
@@ -25,6 +24,7 @@
 #define HOST __host__
 #define DEVICE __device__
 #define HOST_DEVICE HOST DEVICE
+#define DBG_MSG std::cout<<"DEBUG FILE:"<<__FILE__<< ";LINE:"<<__LINE__ <<std::endl;
 
 
 struct Params {
@@ -33,13 +33,18 @@ struct Params {
 	    : sim_N{10U},
 	      sim_DIM{3U},
 	      temp{1.0f},
-	      sim_dt{.025f},
-	      display_dt{25.0f},
+	      sim_dt{0.025f},
+	      display_dt{25},
 	      NUM_BLOCKS{1U},
 	      NUM_THREADS{THREADS_PER_BLOCK} {
 		;
 	}
-
+	void print_params() {
+		std::cout << "Params: (" << sim_N << "," << sim_DIM << ","
+			  << temp << ","
+			  << "sim_dt"
+			  << "," << display_dt << ")" << std::endl;
+	}
 	HOST_DEVICE Params(Params const& other) = default;
 	HOST_DEVICE Params& operator=(Params const& other) = default;
 
@@ -53,8 +58,8 @@ struct Params {
 
 	float temp;
 
-	float sim_dt;      // in sec
-	float display_dt;  // in usec
+	float sim_dt;       // in sec
+	size_t display_dt;  // in usec
 
 	size_t NUM_BLOCKS;
 	size_t NUM_THREADS;
@@ -64,7 +69,7 @@ struct Params {
 int init(int argc, char** argv, Params&);
 
 int find_option(int argc, char** argv, const std::string& option);
-int read_int(int argc,  char** argv, const std::string& option,
+int read_int(int argc, char** argv, const std::string& option,
 	     int default_value);
 float read_float(int argc, char** argv, const std::string& option,
 		 float default_value);
