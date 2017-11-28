@@ -15,7 +15,6 @@ KERNEL void init_simulator(Simulator *simulator, Params params, size_t seed) {
 
 KERNEL void free_simulator(Simulator *simulator) { delete simulator; }
 
-
 DEVICE void Simulator::make_step() {
 	int i = blockIdx.x * blockDim.x + threadIdx.x;
 
@@ -33,7 +32,7 @@ DEVICE void Simulator::make_step() {
 	__syncthreads();
 }
 
-DEVICE void Simulator::updateX(int i) {
+DEVICE void Simulator::updateX(size_t i) {
 
 	float f = params_d.sim_dt * params_d.sim_dt / (2 * mass_data.get()[i]);
 	int idx = i * params_d.sim_DIM;
@@ -43,7 +42,7 @@ DEVICE void Simulator::updateX(int i) {
 		    f * force_data.get()[idx + d];
 }
 
-DEVICE void Simulator::computeForces(int i, float Fold[3]) {
+DEVICE void Simulator::computeForces(size_t i, float Fold[3]) {
 
 	// each thread computes all the interactions of particle i with all
 	// other particles!
@@ -94,16 +93,12 @@ DEVICE void Simulator::init_data() {
 	curandState_t state;
 	curand_init(seed, i, 0, &state);
 
-	for (int d = 0; d < DIM; d++) {
+	for (int d = 0; d < params_d.sim_DIM; d++) {
 		position_data.get()[i_d + d] =
 		    (float(curand_uniform(&state)) - 0.5) * 20;
 		velocity_data.get()[i_d + d] = 0;
 		force_data.get()[i_d + d] = 0;
 	}
 
-	radius_data.get()[i] = 1;  // (drand48()+0.5)/10; //
-	rgb_data.get()[i * 3] = 0;
-	rgb_data.get()[i * 3 + 1] = 0;
-	rgb_data.get()[i * 3 + 2] = 0;
 	mass_data.get()[i] = 10;  // make the mass proportional to the volume
 }

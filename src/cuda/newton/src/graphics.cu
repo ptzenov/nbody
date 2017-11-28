@@ -1,5 +1,7 @@
 #include "graphics.hpp"
 
+KERNEL void launch_simulation_kernel(Simulator* sim, int val) { sim->make_step(); }
+
 GLuint dataBufferID;
 extern void update(int);
 
@@ -92,7 +94,8 @@ void Renderer::draw_scene()  // Clear information from last draw
 
 			glColor3f(rgb_data[i_c], rgb_data[i_c + 1],
 				  rgb_data[i_c + 2]);
-			switch (sim_params.sim_DIM): {
+			/*
+			   switch (sim_params.sim_DIM): {
 					case 1: {
 						glTranslatef(data[i_d], 0.0,
 							     -5f);
@@ -110,8 +113,8 @@ void Renderer::draw_scene()  // Clear information from last draw
 							     data[id + 2]);
 						break;
 					}
-					default: {}
-				}
+					default: {;}
+				}*/
 			GLdouble radius = radius_data[i];
 			glutSolidSphere(radius, 15, 15);
 			glPopMatrix();

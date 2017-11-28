@@ -1,7 +1,8 @@
 #include "common.hpp"
 #include "simulation.hpp"
-#include "graphics.hpp"
 
+
+#include "graphics.hpp"
 
 #include <time.h>
 
@@ -51,8 +52,7 @@ int main(int argc, char** argv)
 
 	Simulator * simulator;
         // init the simulator on device 	
-	init_simulator<<<1,1>>(simulator,sim_params,time(NULL)); 
-		
+	init_simulator<<<1,1>>>(simulator,sim_params,time(NULL)); 
 
 	// initialize OpenGL
         glutInit(&argc, argv);
@@ -80,9 +80,8 @@ int main(int argc, char** argv)
 	
 	// now allocate openGL buffer memeory 
 	// create buffer object
-	
+/*	
 	GLuint gl_buffer_ID;
-
         glGenBuffers(1, &gl_buffer_ID);
      // make this buffer the current array buffer
      	glBindBuffer(GL_ARRAY_BUFFER, gl_buffer_ID);
@@ -90,7 +89,7 @@ int main(int argc, char** argv)
         glBufferData(GL_ARRAY_BUFFER, buffer_size, 0, GL_DYNAMIC_DRAW);
         // register buffer 
 	checkCudaErrors(cudaGLRegisterBufferObject( dataBufferID));
-	
+*/	
 	
 	glutMainLoop();
 	free_simulator<<<1,1>>>(simulator); 

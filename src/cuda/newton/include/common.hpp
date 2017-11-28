@@ -12,9 +12,6 @@
 #include <cuda.h>
 #include <cuda_runtime_api.h>
 
-// runtime API for cuda and openGL interop
-#include <cuda_gl_interop.h>
-
 
 /////////////////NBODY///////////////
 #define G 1  // gravitational constant
@@ -28,6 +25,7 @@
 #define HOST __host__
 #define DEVICE __device__
 #define HOST_DEVICE HOST DEVICE
+
 
 struct Params {
        public:
@@ -65,11 +63,10 @@ struct Params {
 /*User input handling functions*/
 int init(int argc, char** argv, Params&);
 
-int find_option(int argc, const char** argv, const std::string& option);
-int read_int(int argc, const char** argv, const std::string& option,
+int find_option(int argc, char** argv, const std::string& option);
+int read_int(int argc,  char** argv, const std::string& option,
 	     int default_value);
-float read_float(int argc, const char** argv, const std::string& option,
+float read_float(int argc, char** argv, const std::string& option,
 		 float default_value);
-int save_to_file(int argc, char** argv, const char* option);
 
 #endif

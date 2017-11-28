@@ -3,57 +3,62 @@
 
 #include "common.hpp"
 
-// custom implementation of unique_ptr -> on device no stl available
+// custom implementation of custom_unique_ptr -> on device no stl available
 template <typename T>
-class unique_ptr {
+class custom_unique_ptr {
        public:
-	using pointer = T*;
+	using pointer_T = T*;
 
-	HOST_DEVICE unique_ptr(pointer resource)  //  normal ctor
+	HOST_DEVICE custom_unique_ptr(pointer_T resource)  //  normal ctor
 	{
 		ptr_ = resource;
 	}
 
-	HOST_DEVICE unique_ptr(unique_ptr<T>&& other)  // move ctor
+	HOST_DEVICE custom_unique_ptr(custom_unique_ptr<T>&& other)  // move ctor
 	{
 		ptr_ = other.ptr_;
 		other.ptr_ = nullptr;
 	}
 
-	HOST_DEVICE ~unique_ptr()  // dtor
+	HOST_DEVICE ~custom_unique_ptr()  // dtor
 	{
 		delete ptr_;
 	}
 
-	HOST_DEVICE unique_ptr() : ptr_(nullptr) {};
+	HOST_DEVICE custom_unique_ptr() : ptr_(nullptr) {};
 
 	// cannot have copy ctor
-	HOST_DEVICE unique_ptr(unique_ptr<T> const& other) = delete;
+	HOST_DEVICE custom_unique_ptr(custom_unique_ptr<T> const& other) = delete;
 
 	// cannot have assignement operator!
-	HOST_DEVICE unique_ptr& operator=(unique_ptr<T> const& other) = delete;
+	HOST_DEVICE custom_unique_ptr& operator=(custom_unique_ptr<T> const& other) = delete;
 
 	// move assignment operator?
-	HOST_DEVICE unique_ptr& operator=(unique_ptr<T>&& other) {
+	HOST_DEVICE custom_unique_ptr& operator=(custom_unique_ptr<T>&& other) {
 		delete ptr_;
 		ptr_ = other.ptr_;
 		other.ptr_ = nullptr;
 		return *this;
 	}
-	HOST_DEVICE pointer get();
-	HOST_DEVICE void reset(pointer resource) {
+	
+	HOST_DEVICE pointer_T get(){ 
+		return ptr_;
+	}
+
+	HOST_DEVICE void reset(pointer_T resource) {
 		delete ptr_;
 		ptr_ = resource;
 	}
 
 	HOST_DEVICE T& operator*() { return *ptr_; }
 
-	HOST_DEVICE pointer operator&() { return ptr_; }
-	HOST_DEVICE pointer operator->() { return ptr_; }
+	HOST_DEVICE pointer_T operator&() { return ptr_; }
+	HOST_DEVICE pointer_T operator->() { return ptr_; }
 
        private:
-	T* ptr_;
+	pointer_T ptr_;
 };
+
 
 // NBody Simulator (on device)
 class Simulator {
@@ -63,15 +68,16 @@ class Simulator {
        private:
 	size_t mode;
 	size_t seed;
-	unique_ptr<float> position_data;
-	unique_ptr<float> velocity_data;
-	unique_ptr<float> force_data;
-	unique_ptr<float> mass_data;
 
-	DEVICE void computeForces(size_t i);
+	custom_unique_ptr<float> position_data;
+	custom_unique_ptr<float> velocity_data;
+	custom_unique_ptr<float> force_data;
+	custom_unique_ptr<float> mass_data;
+
+	DEVICE void computeForces(size_t i,float *);
 	DEVICE void applyForce(size_t i, size_t j);
 	DEVICE void updateX(size_t i);
-	DEVICE void updateV(size_t i, float* Fold);
+	DEVICE void updateV(size_t i, float *);
 
        public:
 	DEVICE Simulator(Params params, size_t in_seed)
@@ -84,14 +90,12 @@ class Simulator {
 	      mass_data{new float[params_d.sim_N]} {
 		;
 	}
-
+	
 	DEVICE ~Simulator() { ; }
-
 	DEVICE void init_data();
 	DEVICE void make_step();
 };
 
-// this is the Kernel to be launched! it takes a simulator (on device)
 KERNEL void init_simulator(Simulator*, Params, size_t);
 KERNEL void free_simulator(Simulator*);
 

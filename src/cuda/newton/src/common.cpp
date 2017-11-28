@@ -1,7 +1,7 @@
 #include "common.hpp"
 #include <cstdlib>
 
-int find_option(int argc, const char** argv, const std::string & option)
+int find_option(int argc, char** argv, const std::string & option)
 {
         for(int i=1; i<argc; i++)
         {
@@ -11,7 +11,7 @@ int find_option(int argc, const char** argv, const std::string & option)
         return -1;
 }
 
-int read_int(int argc, const char** argv,
+int read_int(int argc, char** argv,
              const std::string & option, int default_value)
 {
 
@@ -21,8 +21,7 @@ int read_int(int argc, const char** argv,
         return default_value;
 }
 
-
-float read_float(int argc, const char** argv,
+float read_float(int argc, char** argv,
              const std::string & option, float default_value)
 {
 
@@ -34,7 +33,7 @@ float read_float(int argc, const char** argv,
 
 
 
-int init(int argc, const char** argv, Params& sim_params)
+int init(int argc, char** argv, Params& sim_params)
 {
         const std::string argv_s
         {
@@ -58,7 +57,7 @@ int init(int argc, const char** argv, Params& sim_params)
 
         sim_params.sim_N = read_int(argc, argv, "-n", 10);
 	sim_params.sim_DIM = read_int(argc,argv,"-dim",3);
-        assert(sim_params.N >= 3) ;
+        assert(sim_params.sim_N >= 3) ;
         assert(sim_params.sim_DIM >= 1 && sim_params.sim_DIM <=3);
 
         //set the variable parameters to default;

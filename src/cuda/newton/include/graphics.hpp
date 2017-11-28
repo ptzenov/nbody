@@ -3,16 +3,24 @@
 
 // OpenGL
 #include <GL/glew.h>
+
 #include <GL/glut.h>
 #include <GL/gl.h>
+
+// runtime API for cuda and openGL interop
+#include <cuda_gl_interop.h>
+
+
 
 #include <memory>
 #include "common.hpp"
 #include "simulation.hpp"
 
-KERNEL void launch_simulation_kernel(Simulator* simulator, int val) {
-	simulator->make_step();
-}
+KERNEL void launch_simulation_kernel(Simulator* simulator, int val);
+
+KERNEL void init_simulator(Simulator*, Params, size_t);
+KERNEL void free_simulator(Simulator*);
+
 
 class Renderer {
 
@@ -27,10 +35,8 @@ class Renderer {
 
 	// Called when the window is resized
 	void handle_resize(int w, int h);
-	void make_step(int val) {
-		launch_simulation_kernel
-			<<<sim_params.NUM_BLOCKS, sim_params.NUM_THREADS>>>
-		    (simulator, val);
+	void make_step(int val){
+		launch_simulation_kernel<<<sim_params.NUM_BLOCKS, sim_params.NUM_THREADS>>>(simulator, val);
 	}
 
        private:
