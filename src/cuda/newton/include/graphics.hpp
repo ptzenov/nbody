@@ -14,6 +14,7 @@
 #include "common.hpp"
 #include "simulation.hpp"
 
+
 KERNEL void launch_simulation_kernel(Simulator* simulator, float* position_data,
 				     int val);
 KERNEL void init_simulator(Simulator*, Params, size_t);
@@ -23,8 +24,10 @@ class Renderer {
 
        public:
 	Renderer(Params, Simulator* in_simulator);
+
 	// initializes the scene	
 	void init_graphics();
+
 	// Draws the 3D scene
 	void draw_scene();
 	void keyboard_navigator(int key, int x, int y);
@@ -32,24 +35,8 @@ class Renderer {
 
 	// Called when the window is resized
 	void handle_resize(int w, int h);
-	void make_step(int val) {
-		// do i need to do that every time??
-		if (!resource_mapped) {
-			cudaGraphicsMapResources(1, &buffer_resource, 0);
-			size_t size = static_cast<size_t>(buffer_size);
-			cudaGraphicsResourceGetMappedPointer(
-			    (void**)&position_data, &size, buffer_resource);
-		}
-		launch_simulation_kernel
-			<< <sim_params.NUM_BLOCKS, sim_params.NUM_THREADS>>>
-		    (simulator, position_data, val);
-		if (!resource_mapped)
-			cudaGraphicsUnmapResources(1, &buffer_resource, 0);
-		else
-			resource_mapped = true;
-	}
-
-
+	void make_step(int val);
+       
        private:
 	std::unique_ptr<float[]> radius_data;
 	std::unique_ptr<float[]> rgb_data;

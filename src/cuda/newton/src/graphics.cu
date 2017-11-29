@@ -1,18 +1,19 @@
 #include "graphics.hpp"
-#include "iostream"
+#include <iostream>
 
 KERNEL void launch_simulation_kernel(Simulator* sim, float* position_data,
 				     int val) {
 	sim->set_position_data(position_data);
 	sim->make_step();
 }
+
 extern void update(int);
 
 Renderer::Renderer(Params sp, Simulator* simulator_ptr)
     : sim_params(sp),
       radius_data{new float[sp.sim_N]},
       rgb_data{new float[3 * sp.sim_N]} {
-	sim_params.print_params();	
+	sim_params.print_params();
 	size_t i_d = 0;
 	for (size_t i = 0; i < sim_params.sim_N;
 	     i++, i_d = i * sim_params.sim_DIM) {
@@ -23,7 +24,7 @@ Renderer::Renderer(Params sp, Simulator* simulator_ptr)
 	}
 
 	simulator = simulator_ptr;
-	std::cout<<"Constructor" << std::endl;
+	std::cout << "Constructor" << std::endl;
 	disp_0 = 1;
 	simulation_started = 0;
 
@@ -41,18 +42,36 @@ Renderer::Renderer(Params sp, Simulator* simulator_ptr)
 	buffer_size =
 	    (GLuint)sim_params.sim_N * sim_params.sim_DIM * sizeof(float);
 	glGenBuffers(1, &buffer_ID);
-	DBG_MSG;
 	glBindBuffer(GL_ARRAY_BUFFER, buffer_ID);
-	DBG_MSG;
 	glBufferData(GL_ARRAY_BUFFER, buffer_size, 0,
-		     GL_DYNAMIC_DRAW);  // allocate memory for the buffer
-	DBG_MSG;
+		     GL_DYNAMIC_DRAW);     // allocate memory for the buffer
 	glBindBuffer(GL_ARRAY_BUFFER, 0);  // unbind the buffer
-	DBG_MSG;
-	cudaGraphicsGLRegisterBuffer(
-	    &buffer_resource, buffer_ID,
-	    cudaGraphicsRegisterFlagsNone);  // register the gl buffer with cuda
-      }
+	cuda_check(cudaGraphicsGLRegisterBuffer(&buffer_resource, buffer_ID,
+						cudaGraphicsRegisterFlagsNone),
+		   __FILE__, __LINE__);
+	// register the gl buffer with cuda
+}
+
+void Renderer::make_step(int val) {
+	// do i need to do that every time??
+
+	if (!resource_mapped) {
+		cuda_check(cudaGraphicsMapResources(1, &buffer_resource, 0),
+			   __FILE__, __LINE__);
+		size_t size = static_cast<size_t>(buffer_size);
+		cuda_check(cudaGraphicsResourceGetMappedPointer(
+			       (void**)&position_data, &size, buffer_resource),
+			   __FILE__, __LINE__);
+	}
+	launch_simulation_kernel
+		<< <sim_params.NUM_BLOCKS, sim_params.NUM_THREADS>>>
+	    (simulator, position_data, val);
+	if (!resource_mapped)
+		cuda_check(cudaGraphicsUnmapResources(1, &buffer_resource, 0),
+			   __FILE__, __LINE__);
+	else
+		resource_mapped = false;
+}
 
 // Initializes 3D rendering
 void Renderer::init_graphics() {
@@ -100,7 +119,10 @@ void Renderer::draw_scene()  // Clear information from last draw
 		// map the data stored in the OpenGL buffer to our databuffer!
 		GLfloat* data =
 		    (GLfloat*)glMapBuffer(GL_ARRAY_BUFFER, GL_READ_WRITE);
-
+		if (data == nullptr) {
+			std::cout << "Data buffer is null" << std::endl;
+			assert(false);
+		}
 		// loop over all particles and drow then as spheres
 		size_t i_d = 0;
 		size_t i_c = 0;
@@ -132,7 +154,8 @@ void Renderer::draw_scene()  // Clear information from last draw
 			GLdouble radius = radius_data[i];
 			glutSolidSphere(radius, 15, 15);
 			glPopMatrix();
-		}				   // for loop
+		}  // for loop
+		glUnmapBuffer(GL_ARRAY_BUFFER);
 		glBindBuffer(GL_ARRAY_BUFFER, 0);  // unmap the data buffer
 	}
 	glutSwapBuffers();  // Send the 3D scene to the screen
@@ -201,19 +224,24 @@ void Renderer::handle_keypress(unsigned char key, int x, int y) {
 			break;
 		case 'h':
 			sim_params.temp += 0.05;
-			cudaMemcpy(&sim_params, &simulator->params_d,
-				   sizeof(Params), cudaMemcpyHostToDevice);
+			cuda_check(
+			    cudaMemcpy(&sim_params, &simulator->params_d,
+				       sizeof(Params), cudaMemcpyHostToDevice),
+			    __FILE__, __LINE__);
 			break;
 		case 'c':
 			sim_params.temp -= 0.05;
-			cudaMemcpy(&sim_params, &simulator->params_d,
-				   sizeof(Params), cudaMemcpyHostToDevice);
-
+			cuda_check(
+			    cudaMemcpy(&sim_params, &simulator->params_d,
+				       sizeof(Params), cudaMemcpyHostToDevice),
+			    __FILE__, __LINE__);
 			break;
 		case 'i':
 			sim_params.sim_dt = -sim_params.sim_dt;
-			cudaMemcpy(&sim_params, &simulator->params_d,
-				   sizeof(Params), cudaMemcpyHostToDevice);
+			cuda_check(
+			    cudaMemcpy(&sim_params, &simulator->params_d,
+				       sizeof(Params), cudaMemcpyHostToDevice),
+			    __FILE__, __LINE__);
 			break;
 		case '0':
 			disp_0 = -1 * disp_0;

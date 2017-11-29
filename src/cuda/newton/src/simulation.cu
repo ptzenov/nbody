@@ -15,12 +15,21 @@ KERNEL void init_simulator(Simulator *simulator, Params params, size_t seed) {
 
 KERNEL void free_simulator(Simulator *simulator) { delete simulator; }
 
+DEVICE Simulator::Simulator(Params params, size_t in_seed)
+    : params_d{params},
+      mode{0},
+      seed(in_seed),
+      velocity_data{new float[params_d.sim_N * params_d.sim_DIM]},
+      force_data{new float[params_d.sim_N * params_d.sim_DIM]},
+      mass_data{new float[params_d.sim_N]} {
+	;
+}
+
 DEVICE void Simulator::make_step() {
 	int i = blockIdx.x * blockDim.x + threadIdx.x;
 
 	if (i < params_d.sim_N) {
-		if (mode == 0)
-		       	updateX(i);
+		if (mode == 0) updateX(i);
 
 		if (mode == 1) {
 			float Fold[3];
@@ -71,8 +80,7 @@ DEVICE void Simulator::applyForce(size_t i, size_t j) {
 	// update the force on particle i with the force exerted by particle j
 	for (int d = 0; d < params_d.sim_DIM; d++)
 		force_data.get()[idx_i + d] +=
-		    f * (position_data[idx_j + d] -
-			 position_data[idx_i + d]);
+		    f * (position_data[idx_j + d] - position_data[idx_i + d]);
 }
 
 DEVICE void Simulator::updateV(size_t i, float Fold[3]) {
