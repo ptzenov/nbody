@@ -19,7 +19,10 @@ KERNEL void launch_simulation_kernel(Simulator* simulator, float* position_data,
 				     int val);
 KERNEL void init_simulator(Simulator*, Params, size_t);
 KERNEL void free_simulator(Simulator*);
-
+/***
+ * Main renderer class that encapsulates all the rendering subroutines. current desing is
+ * tightly coupled to OpenGL. 
+ ***/
 class Renderer {
 
        public:
@@ -30,10 +33,10 @@ class Renderer {
 
 	// Draws the 3D scene
 	void draw_scene();
+	// keyboard navigation. 
 	void keyboard_navigator(int key, int x, int y);
 	void handle_keypress(unsigned char key, int x, int y);
 
-	// Called when the window is resized
 	void handle_resize(int w, int h);
 	void make_step(int val);
        
@@ -42,24 +45,26 @@ class Renderer {
 	std::unique_ptr<float[]> rgb_data;
 
 	Params sim_params;
-	Simulator* simulator;
-
+	Simulator* simulator; // a handle to the simulator object -> this is where all the cuda action 
+	// takes place .
+	
 	int disp_0;
 	int simulation_started;
 
-	// cuda-openGL interop
+	// cuda-openGL interop-related data
 	GLuint buffer_ID;
 	GLuint buffer_size;
 	cudaGraphicsResource_t buffer_resource;
-	float* position_data;
+	float* position_data; // this is the buffer (array) which is shared between openGL and CUDA. 
 	bool resource_mapped;
 
-	// GL stuff
-	GLfloat angle_x;
-	GLfloat angle_y;
-
-	GLfloat z_translate;
-	GLfloat x_translate;
+	// GL stuff for the camera viewport control
+	GLfloat angle_x; // rotation angle for x-direction
+	GLfloat angle_y; // rotation angle for y-direction
+	
+	// translation vector 
+	GLfloat z_translate; 
+	GLfloat x_translate; 
 	GLfloat y_translate;
 };
 

@@ -1,6 +1,7 @@
 #include "graphics.hpp"
 #include <iostream>
-
+// this is the main entry point to the device computation. Controlled by the host 
+// 
 KERNEL void launch_simulation_kernel(Simulator* sim, float* position_data,
 				     int val) {
 	sim->set_position_data(position_data);
@@ -33,9 +34,8 @@ Renderer::Renderer(Params sp, Simulator* simulator_ptr)
 	z_translate = -20.0f;
 	x_translate = 0.0f;
 	y_translate = 0.0f;
-	/** is the cuda resource mapped to the OPENGL buffer??
-	*
-	*/
+	
+	// map the cuda buffer resource to the openGL arraybuffer
 	resource_mapped = false;
 	buffer_ID = 1;
 	// size of opengl/cuda buffer (in bytes)
@@ -46,15 +46,15 @@ Renderer::Renderer(Params sp, Simulator* simulator_ptr)
 	glBufferData(GL_ARRAY_BUFFER, buffer_size, 0,
 		     GL_DYNAMIC_DRAW);     // allocate memory for the buffer
 	glBindBuffer(GL_ARRAY_BUFFER, 0);  // unbind the buffer
+	// register the gl buffer with cuda
 	cuda_check(cudaGraphicsGLRegisterBuffer(&buffer_resource, buffer_ID,
 						cudaGraphicsRegisterFlagsNone),
 		   __FILE__, __LINE__);
-	// register the gl buffer with cuda
 }
 
 void Renderer::make_step(int val) {
+	
 	// do i need to do that every time??
-
 	if (!resource_mapped) {
 		cuda_check(cudaGraphicsMapResources(1, &buffer_resource, 0),
 			   __FILE__, __LINE__);

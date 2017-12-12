@@ -27,13 +27,21 @@
 #define DBG_MSG                                                       \
 	std::cout << "DEBUG MSG:" << __FILE__ << ";LINE:" << __LINE__ \
 		  << std::endl;
-
+/**
+ * CUDA error checker; 
+ * @param code: cuda error code 
+ * @param file: name of file that caused the error 
+ * @param line: line where the error was detected
+ */
 void cuda_check(cudaError_t code, const char* file, int line);
 
-// custom implementation of custom_unique_ptr -> on device no stl available
 template <typename T>
 class custom_unique_ptr {
-       public:
+	/***
+	 * Custom implementation of smart pointers ON THE KERNEL. CUDA does not allow 
+	 * STL on device, but nevertheless smart pointers are nice! 
+	 ***/
+	public:
 	using pointer_T = T*;
 
 	HOST_DEVICE custom_unique_ptr(pointer_T resource)  //  normal ctor
@@ -87,8 +95,13 @@ class custom_unique_ptr {
 	pointer_T ptr_;
 };
 
+/***
+ * A struct with the params to be carried around between device and host. 
+ * 1) All parameters are public and thus modifiable by the external user. 
+ * 2) struct can be initialized both on device and on host. 
+ ***/
 struct Params {
-       public:
+	public:
 	HOST_DEVICE Params()
 	    : sim_N{10U},
 	      sim_DIM{3U},
@@ -112,16 +125,16 @@ struct Params {
 	HOST_DEVICE Params& operator=(Params&& other) = delete;
 	HOST_DEVICE ~Params() { ; }
 
-	size_t sim_N;
-	size_t sim_DIM;
+	size_t sim_N; // number of points to simulate
+	size_t sim_DIM; // number of dimensions to simulate
 
-	float temp;
+	float temp; // "temperature" of simulation
 
-	float sim_dt;       // in sec
-	size_t display_dt;  // in usec
+	float sim_dt;       // simulation time-step in sec
+	size_t display_dt;  // display time-step (used in OpenGL's update function) in usec
 
-	size_t NUM_BLOCKS;
-	size_t NUM_THREADS;
+	size_t NUM_BLOCKS; // num cuda blocks 
+	size_t NUM_THREADS; // num cuda theads per block
 };
 
 /*User input handling functions*/
