@@ -1,0 +1,50 @@
+
+#include "common_allGlobal.hpp"
+
+using namespace std;
+
+__device__ int a;
+__global__ void kernel1(float*temp1)
+{
+	
+	int i = threadIdx.x;
+	if(i ==0){
+	 a = *temp1; 
+	 *temp1 = a+1;
+	}
+	//__syncthreads();
+}
+
+
+__global__ void kernel2(float*temp2)
+{
+	
+	int i = threadIdx.x;
+	if(i ==0){
+ 		 // 6+ 5	
+	  *temp2 =*temp2+a ;
+	}
+	//__syncthreads();
+}
+
+int main(){
+
+float tmp_h = 5;
+float* tmp_d;
+cudaMalloc((void**)&tmp_d,sizeof(float));
+cudaMemcpy(tmp_d,&tmp_h,sizeof(float),cudaMemcpyHostToDevice);
+
+kernel1<<<1,3>>>(tmp_d);
+cudaMemcpy(&tmp_h,tmp_d,sizeof(float),cudaMemcpyDeviceToHost);
+cout<<"kernel1 result: "<<tmp_h<<endl;
+ 
+
+kernel2<<<1,3>>>(tmp_d);
+cudaMemcpy(&tmp_h,tmp_d,sizeof(float),cudaMemcpyDeviceToHost);
+cout<<"kernel2 result: "<<tmp_h<<endl;
+
+
+
+
+return 0;
+}

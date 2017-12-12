@@ -1,0 +1,351 @@
+#include <iostream>
+#include <stdlib.h> //Needed for "exit" function
+#include "common.hpp"
+
+using namespace std;
+
+int N;
+int DIM;
+int bufferStride = DIM+3+1;
+int NUM_BLOCKS;
+int NUM_THREADS;
+
+GLfloat* dataBuffer_d;
+GLfloat* dataBuffer;
+GLuint	dataBufferID;
+
+float heateffect= 1;
+float dt=0.001;
+float radius_all = 0.1;
+int current_width = 400;
+int current_height = 400;
+
+int disp_0 = 1;
+int simulation_started = 0;
+
+// particle parameters
+
+GLfloat angle_x = 0;
+GLfloat angle_y = 0;
+GLfloat z_translate =-20.0f;
+GLfloat x_translate =0.0f;
+GLfloat y_translate = 0.0f;
+
+particle_t* Particles_d;
+particle_t* Particles_h;
+
+// simulation parameters - on Device
+__device__ int N_d;
+__device__ int DIM_d;
+__device__ int bufferStride_d;
+
+
+// sim parameters on device! 
+__device__ float heateffect_d;
+__device__ float dt_d;
+
+
+
+
+
+
+/////////////////NBODY///////////////
+
+int main(int argc, char** argv) {
+
+	N = 15;
+	 DIM =3;
+	NUM_BLOCKS = 1;
+	NUM_THREADS = N;
+	
+	Particles_h = (particle_t*)malloc(N*sizeof(particle_t));
+	
+	glutInit(&argc, argv);
+	glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB | GLUT_DEPTH);
+	glutInitWindowSize(400, 400); //Set the window size
+	//Create the window
+	glutCreateWindow("Nbody Simulation");
+
+	/*initialize graphics drawing functions
+	 * setup the GLViewPort & coordinate system
+	 * Generate GL Buffers*/
+	initGraphics(); //Initialize rendering
+		
+	//Set handler functions for drawing, keypresses, and window resizes
+	glutDisplayFunc(drawScene);
+	glutKeyboardFunc(handleKeypress);
+	glutSpecialFunc(keyboardNavigator);
+	glutReshapeFunc(handleResize);
+	
+	
+	//initialze Cuda Context and register the GL Buffer dataBufferID! 	
+	//---initCudaContext---
+	
+	/*
+			 
+	  if( cutCheckCmdLineFlag(argc, (const char**)argv, "device") ) {
+		cutilGLDeviceInit(argc, argv);
+	  } else {
+		cudaGLSetGLDevice( cutGetMaxGflopsDeviceId() );
+	  }
+	  */ 
+  
+	
+	
+	
+	// generate GL Buffers to be shared with CUDA! - register GL Buffers with CUDA! allocate memory! 
+	glGenBuffers(1,&dataBufferID); // generate one buffer with id dataBufferID and allocate space for it
+	glBindBuffer(GL_ARRAY_BUFFER,dataBufferID);
+	// allocate space for buffer
+    	glBufferData(GL_ARRAY_BUFFER, bufferStride*N, NULL,GL_DYNAMIC_DRAW);
+    // map the buffer to CUDA 
+   	cudaGLRegisterBufferObject(dataBufferID);
+    //unbind buffer! 
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+	
+	
+
+	/*initialize particle data, allocate space on device*/
+	initData(Particles_h);
+//      setVarParams<<<NUM_BLOCKS,NUM_THREADS>>>(heateffect,dt);
+
+//	setSimParams<<<NUM_BLOCKS,NUM_THREADS>>>(N,DIM,bufferStride);
+	
+	
+	// allocate memory on device for Particles_d and dataBuffer_d
+        cudaMalloc((void**)Particles_d,N*sizeof(particle_t));
+	cudaMalloc((void**)dataBuffer_d,N*bufferStride);        
+	
+        //copy particles DATA from Host to Memory
+        cudaMemcpy(Particles_d,Particles_h,N*sizeof(particle_t),cudaMemcpyHostToDevice);
+	// copy the parameters ! 	
+	
+
+
+	 
+	glutMainLoop();
+	return 0; //This line is never reached
+	
+}
+
+
+
+// simulation code
+
+
+
+__global__ void setSimParams(int N, int DIM, int Stride){
+
+	N_d = N;
+	DIM_d = DIM;
+	bufferStride_d = Stride;
+
+}
+
+__global__ void setVarParams(float heateffect,float dt){
+	
+	heateffect_d = heateffect;
+	dt_d = dt;
+	
+
+}
+
+particle_t::~particle_t(){
+
+	delete[] p;
+	delete[] v;
+	delete[] force;
+
+	}
+
+
+// cuda Kernel - assumes all particle data is on device memory!
+__global__ void launch_kernel(particle_t* Particles,GLfloat* dataBuffer_d, int KernelMode){
+	
+	int i = threadIdx.x;
+	// if KernelMode = 1 then Update X
+	if(KernelMode == 1){
+		
+	if(i > N_d) 
+		return;
+	//and update dataBuffer! 
+	updateX(Particles+i);
+
+	for(int d=0;d<DIM_d;d++){
+		dataBuffer_d[i*bufferStride_d+d] = Particles[i].p[d]; // update the new coordinate positions in the data buffer! 
+	}
+		// fill in also the RGB data and the radius. In general THIS IS NOT NECESSARY!! NEED TO PERFORM ONCE! REFACTOR!!!
+	dataBuffer_d[i*bufferStride_d+DIM_d] =Particles[i].r;
+	dataBuffer_d[i*bufferStride_d+DIM_d+1] =Particles[i].g;
+	dataBuffer_d[i*bufferStride_d+DIM_d+2] =Particles[i].b;
+	dataBuffer_d[i*bufferStride_d+DIM_d+3] =Particles[i].radius;
+	
+	}else{
+	// if KernelMode = 2 then Update Y
+		float3 Fold;
+		Fold.x = Particles[i].force[0];
+		Fold.y = Particles[i].force[1];
+		Fold.z = Particles[i].force[2];
+		//for(int d=0;d<DIM_d;d++)
+			//Fold[d]=Particles[i].force[d];
+		
+		//of course in parallel :)
+		computeForces(Particles,i);
+		updateV(Particles+i,Fold);
+		}
+	// in either case wait for all threads to finish! 
+	__syncthreads();
+	
+	
+	}
+
+
+
+
+__device__ void computeForces(particle_t* Particles,int i){
+
+	// each thread computes all the interactions of particle i with all other particles! 		
+
+	for(int d=0;d<DIM_d;d++)
+	    Particles[i].force[d] = 0;
+
+	for(int j = 0;j< N_d;j++)
+		if(i!=j)
+			applyForce(Particles+i,Particles+j);
+	
+}// computeForces
+
+// device function. Assumes particle_i and neighbor_j are on device memory
+
+__device__ void applyForce( particle_t * particle_i, particle_t* neighbor_j){
+	
+	
+	float k_i = G*particle_i->m;
+	float r=0;
+	float k = k_i*neighbor_j->m;
+
+	for(int d=0;d<DIM_d;d++){
+	  r+=sqr(neighbor_j->p[d]-particle_i->p[d]); // radius length computation
+	}
+	r+= EPS2;
+    float f =k/(sqrt(r)*r);
+    
+    // update the force on particle i with the force exerted by particle j 
+	for(int d=0;d<DIM_d;d++)
+	  particle_i->force[d]+=f*(neighbor_j->p[d]-particle_i->p[d]);
+}
+
+
+
+ 
+__device__  void updateX(particle_t* particle_i, int index){
+
+	float f = dt_d*dt_d/(2*particle_i->m);
+	for(int d=0;d<DIM_d;d++){
+		particle_i->p[d]+=dt_d*particle_i->v[d]+f*particle_i->force[d];
+		
+}
+}
+
+
+
+		
+__device__ void updateV(particle_t* particle_i, float3 Fold){
+
+	float f = dt_d/(2*particle_i->m);
+
+//	for(int d=0;d<DIM_d;d++)
+//			particle_i->v[d]+=f*(particle_i->force[d]+Fold[d]);
+	particle_i->v[0]+=f*(particle_i->force[0]+Fold.x);
+	particle_i->v[1]+=f*(particle_i->force[1]+Fold.y);
+	particle_i->v[2]+=f*(particle_i->force[2]+Fold.z);
+
+
+
+}
+
+// performed on host !! 
+__host__ void initData(particle_t* Particles){
+			
+	srand48(time(NULL));
+		
+	// initialize 'DARK MATTER PARTICLE' - black hole!!!
+	Particles[0].p =(float*)malloc(DIM*sizeof(float));
+		Particles[0].v =(float*)malloc(DIM*sizeof(float));
+		Particles[0].force =(float*)malloc(DIM*sizeof(float));
+
+		for(int d=0;d<DIM;d++){
+			Particles[0].p[d] = 0;//(drand48()-0.5)*size;
+			Particles[0].v[d] = 0;
+			Particles[0].force[d] = 0;
+     	}
+		Particles[0].radius =  radius_all/10 ; // (drand48()+0.5)/10; // radius between 0.05 and 0.15
+		Particles[0].r = 1;
+		Particles[0].g = 1;
+		Particles[0].b = 1;
+		Particles[0].m = 100; // make the mass proportional to the volume
+	
+	 	float rand;
+		
+
+	for(int i=1;i< N;i++){
+		// allocate storage for the position velocity and force vectors, respectively.
+		Particles[i].p =(float*)malloc(DIM*sizeof(float));
+		Particles[i].v =(float*)malloc(DIM*sizeof(float));
+		Particles[i].force =(float*)malloc(DIM*sizeof(float));
+
+		for(int d=0;d<DIM;d++){
+		rand = 	(drand48()-0.5)*size; 
+		Particles[i].p[d] = rand >= 0 ? rand+1 : rand-1;
+		Particles[i].v[d] =(drand48()-0.5)*5;
+		Particles[i].force[d] = 0;
+     	}
+		Particles[i].radius =  radius_all ; // (drand48()+0.5)/10; // radius between 0.05 and 0.15
+		Particles[i].r =drand48();
+		Particles[i].g = drand48();
+		Particles[i].b = drand48();
+		Particles[i].m = 1; // make the mass proportional to the volume
+	}
+#define NN N
+#define DIMM DIM
+#define STRIDE bufferStride
+#define HEFF heateffect
+#define DT dt	
+#define _NUM_BLOCKS NUM_BLOCKS
+#define _NUM_THREADS NUM_THREADS
+	setSimParams<<<_NUM_BLOCKS,_NUM_THREADS>>>(NN,DIMM,STRIDE);
+        setVarParams<<<_NUM_BLOCKS,_NUM_THREADS>>>(HEFF,DT);
+
+
+}	
+
+void freeData(){
+	delete[] Particles_h;
+}
+
+int find_option(int argc, char** argv, const char* option){
+
+	for(int i=1;i<argc;i++){
+
+		if(strcmp(argv[i],option) == 0){
+			return i;
+		}
+
+	}
+	return -1;
+
+	}
+
+int read_int(int argc, char** argv, const char* option, int default_value){
+
+	int i = find_option(argc,argv, option);
+
+	if(i>0 && i<argc-1){
+
+		return atoi( argv[i+1] );
+	}
+	return default_value;
+
+}
+
+///////////////////////////////graphics code/////////////////////////////////////

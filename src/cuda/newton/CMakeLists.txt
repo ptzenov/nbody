@@ -1,9 +1,8 @@
 cmake_minimum_required(VERSION 3.8) 
-
-project(NBODY LANGUAGES CXX CUDA) # already fidns and sets the correct CXX and cuda compiler
+project(NBODY LANGUAGES C CXX CUDA) # already fidns and sets the correct CXX and cuda compiler
 
 set(CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS} "--std=c++11")
-set(CMAKE_CUDA_FLAGS ${CMAKE_CUDA_FLAGS} "-arch=sm_30")
+set(CMAKE_CUDA_FLAGS ${CMAKE_CUDA_FLAGS} "-arch=sm_20")
 
 #Bring the headers, such as Student.h into the project
 include_directories( "include"	)
