@@ -10,7 +10,8 @@
 #include <assert.h>
 
 #include <cuda.h>
-#include <cuda_runtime_api.h>
+#include <cuda_runtime.h>
+
 
 /////////////////NBODY///////////////
 #define G 1  // gravitational constant
@@ -24,16 +25,23 @@
 #define HOST __host__
 #define DEVICE __device__
 #define HOST_DEVICE HOST DEVICE
-#define DBG_MSG                                                       \
-	std::cout << "DEBUG MSG:" << __FILE__ << ";LINE:" << __LINE__ \
+
+
+#define _DEBUG_
+#ifdef _DEBUG_
+#define DBG_MSG(X)                                                       \
+	std::cout << "MSG:" << X << " @ "<< __FILE__ << " on LINE:" << __LINE__ \
 		  << std::endl;
+#endif
 /**
  * CUDA error checker; 
  * @param code: cuda error code 
  * @param file: name of file that caused the error 
  * @param line: line where the error was detected
  */
-void cuda_check(cudaError_t code, const char* file, int line);
+void cuda_check_impl(cudaError_t code, const char* file, int line);
+
+#define cuda_check(CODE) cuda_check_impl(CODE,__FILE__,__LINE__); // wrapper to call cuda check 
 
 template <typename T>
 class custom_unique_ptr {

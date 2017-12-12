@@ -28,7 +28,7 @@ class Simulator {
 		position_data = pos_data;
 	}
 	
-	DEVICE Simulator(Params params, size_t in_seed); // seed for the 	
+	DEVICE Simulator(Params params, size_t in_seed); // seed for the cuda random number generator 	
 	DEVICE ~Simulator() { ; } // destructor -> everything is on the stack so nothing to destroy!
 	
 	DEVICE void init_data(); // randomizes the positions of all particles
@@ -37,6 +37,9 @@ class Simulator {
 
 // kernel functions to setup memory for the simulator and also to free mem
 KERNEL void init_simulator(Simulator*, Params, size_t); 
+KERNEL void init_simulation_data(Simulator *simulator);
+
+
 KERNEL void free_simulator(Simulator*);
 
 #endif

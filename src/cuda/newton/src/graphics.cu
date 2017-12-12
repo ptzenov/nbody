@@ -1,7 +1,8 @@
 #include "graphics.hpp"
 #include <iostream>
-// this is the main entry point to the device computation. Controlled by the host 
-// 
+// this is the main entry point to the device computation. Controlled by the
+// host
+//
 KERNEL void launch_simulation_kernel(Simulator* sim, float* position_data,
 				     int val) {
 	sim->set_position_data(position_data);
@@ -34,7 +35,7 @@ Renderer::Renderer(Params sp, Simulator* simulator_ptr)
 	z_translate = -20.0f;
 	x_translate = 0.0f;
 	y_translate = 0.0f;
-	
+
 	// map the cuda buffer resource to the openGL arraybuffer
 	resource_mapped = false;
 	buffer_ID = 1;
@@ -48,29 +49,35 @@ Renderer::Renderer(Params sp, Simulator* simulator_ptr)
 	glBindBuffer(GL_ARRAY_BUFFER, 0);  // unbind the buffer
 	// register the gl buffer with cuda
 	cuda_check(cudaGraphicsGLRegisterBuffer(&buffer_resource, buffer_ID,
-						cudaGraphicsRegisterFlagsNone),
-		   __FILE__, __LINE__);
+						cudaGraphicsRegisterFlagsNone));
+	if (!resource_mapped) {
+		cuda_check(cudaGraphicsMapResources(1, &buffer_resource, 0));
+		size_t size = static_cast<size_t>(buffer_size);
+		cuda_check(cudaGraphicsResourceGetMappedPointer(
+		    (void**)&position_data, &size, buffer_resource));
+		resource_mapped = true;
+	}
+      
 }
 
 void Renderer::make_step(int val) {
-	
+
 	// do i need to do that every time??
 	if (!resource_mapped) {
-		cuda_check(cudaGraphicsMapResources(1, &buffer_resource, 0),
-			   __FILE__, __LINE__);
+		cuda_check(cudaGraphicsMapResources(1, &buffer_resource, 0));
 		size_t size = static_cast<size_t>(buffer_size);
 		cuda_check(cudaGraphicsResourceGetMappedPointer(
-			       (void**)&position_data, &size, buffer_resource),
-			   __FILE__, __LINE__);
+		    (void**)&position_data, &size, buffer_resource));
 	}
 	launch_simulation_kernel
 		<< <sim_params.NUM_BLOCKS, sim_params.NUM_THREADS>>>
 	    (simulator, position_data, val);
-	if (!resource_mapped)
-		cuda_check(cudaGraphicsUnmapResources(1, &buffer_resource, 0),
-			   __FILE__, __LINE__);
-	else
+	cuda_check(cudaDeviceSynchronize()); // wait for everyone to finish
+	if (!resource_mapped) {
+		cuda_check(cudaGraphicsUnmapResources(1, &buffer_resource, 0));
+	} else {
 		resource_mapped = false;
+	}
 }
 
 // Initializes 3D rendering
@@ -161,9 +168,9 @@ void Renderer::draw_scene()  // Clear information from last draw
 	glutSwapBuffers();  // Send the 3D scene to the screen
 }
 
-/**
+/***
  * Keyboard control routines
- */
+ ***/
 void Renderer::keyboard_navigator(int key, int x, int y) {
 	switch (key) {
 		case GLUT_KEY_DOWN: {
@@ -224,24 +231,21 @@ void Renderer::handle_keypress(unsigned char key, int x, int y) {
 			break;
 		case 'h':
 			sim_params.temp += 0.05;
-			cuda_check(
-			    cudaMemcpy(&sim_params, &simulator->params_d,
-				       sizeof(Params), cudaMemcpyHostToDevice),
-			    __FILE__, __LINE__);
+			cuda_check(cudaMemcpy(&sim_params, &simulator->params_d,
+					      sizeof(Params),
+					      cudaMemcpyHostToDevice));
 			break;
 		case 'c':
 			sim_params.temp -= 0.05;
-			cuda_check(
-			    cudaMemcpy(&sim_params, &simulator->params_d,
-				       sizeof(Params), cudaMemcpyHostToDevice),
-			    __FILE__, __LINE__);
+			cuda_check(cudaMemcpy(&sim_params, &simulator->params_d,
+					      sizeof(Params),
+					      cudaMemcpyHostToDevice));
 			break;
 		case 'i':
 			sim_params.sim_dt = -sim_params.sim_dt;
-			cuda_check(
-			    cudaMemcpy(&sim_params, &simulator->params_d,
-				       sizeof(Params), cudaMemcpyHostToDevice),
-			    __FILE__, __LINE__);
+			cuda_check(cudaMemcpy(&sim_params, &simulator->params_d,
+					      sizeof(Params),
+					      cudaMemcpyHostToDevice));
 			break;
 		case '0':
 			disp_0 = -1 * disp_0;

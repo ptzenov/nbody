@@ -1,11 +1,12 @@
 #include "common.hpp"
 #include <cstdlib>
 
-void cuda_check(cudaError_t code, const char* file, int line) {
+void cuda_check_impl(cudaError_t code, const char* file, int line) {
 	if (code != cudaSuccess) {
 		std::cout << "Cuda call on: " << file << " line " << line
 			  << " failed. Cuda error message:\""
 			  << cudaGetErrorString(code) << "\"" << std::endl;
+		cudaDeviceReset();
 		assert(false);
 	}
 }

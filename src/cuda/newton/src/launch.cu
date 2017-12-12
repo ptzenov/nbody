@@ -36,16 +36,22 @@ void update(int val) {
 }
 
 int main(int argc, char** argv) {
+
 	// create default params set
 	// parse from user input if any
 	assert(init(argc, argv, sim_params) == 0);
 
 	// initialize OpenGL
-	std::cout << "Initializing Graphics" << std::endl;
+	DBG_MSG("Initializing GLUT graphics");
 	glutInit(&argc, argv);
 	glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB | GLUT_DEPTH);
 	glutInitWindowSize(400, 400);
 	glutCreateWindow("Nbody Simulation");
+
+	DBG_MSG("Initializing CUDA context.");
+	cuda_check(cudaSetDevice(0));
+	cuda_check(cudaGLSetGLDevice(0)); 
+	cudaDeviceSynchronize();
 
 	// Set handler functions for drawing, keypresses, and window resizes
 	glutDisplayFunc(draw_scene);
@@ -53,25 +59,24 @@ int main(int argc, char** argv) {
 	glutSpecialFunc(keyboard_navigator);
 	glutReshapeFunc(handle_resize);
 	glewInit();
-	
-	std::cout << "Initializing Cuda Context" << std::endl;
-	cuda_check(cudaSetDevice(0), __FILE__, __LINE__);
-	cuda_check(cudaGLSetGLDevice(0), __FILE__, __LINE__);
 
-	Simulator* simulator;	
+	Simulator* simulator;
 	// init the simulator on device
 	init_simulator << <1, 1>>> (simulator, sim_params, time(NULL));
-	std::cout << "Simulator initialization completed! " << std::endl;
+	cuda_check(cudaDeviceSynchronize());
+	DBG_MSG("Simulator initializaiton completed");
 
 	// init renderer and assigne simulator to it!
-	std::cout << "fetching renderer! " << std::endl;
+	DBG_MSG("Initializing renderer");
 	renderer = new Renderer(sim_params, simulator);
-	std::cout << "renderer->init_graphics" << std::endl;
 	renderer->init_graphics();
+
+	init_simulation_data << <1, 1>>> (simulator);
+	cuda_check(cudaDeviceSynchronize());
 	
-	// Set handler functions for drawing, keypresses, and window resizes
+	DBG_MSG("Starting glut loop");
 	glutMainLoop();
-	free_simulator <<<1, 1>>> (simulator);
+	free_simulator << <1, 1>>> (simulator);
 	cudaDeviceReset();
 	return 0;
 }

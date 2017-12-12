@@ -50,7 +50,7 @@ class Renderer {
 	
 	int disp_0;
 	int simulation_started;
-
+	
 	// cuda-openGL interop-related data
 	GLuint buffer_ID;
 	GLuint buffer_size;

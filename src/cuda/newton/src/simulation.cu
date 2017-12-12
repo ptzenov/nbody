@@ -10,8 +10,13 @@
 // to be launched from one thread!
 KERNEL void init_simulator(Simulator *simulator, Params params, size_t seed) {
 	simulator = new Simulator(params, seed);
+}
+
+KERNEL void init_simulation_data(Simulator *simulator) {
 	simulator->init_data();
 }
+
+
 
 KERNEL void free_simulator(Simulator *simulator) { delete simulator; }
 
