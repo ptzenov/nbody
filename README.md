@@ -9,15 +9,31 @@ version of freeglut3 via the command (in linux)
  
 sudo apt-get install freeglut3-dev
 
-then navigate to the corresponding folder and run 
+as well as the glew library via 
+
+sudo apt-get install libglew-dev
+
+############# SERIAL VERSION #####################
+navigate to src/serial -> chosing newton or brownian and run 
 
 make // to compile 
 make clean // to clean 
 
 ./nbody --help to query the initial arguments 
 ./nbody to run default 
+############# CUDA VERSION #####################
+currently the CUDA version is under re-construction. to be able to compile the cuda version navigate to
+src/cuda/newtonian. Compilation here works with cmake according to the conventional way:
 
-during simulation:
+mkdir build
+
+cd build 
+
+cmake .. 
+
+make
+
+############# During simulation #####################
 
 press "F1" to start the simulaiton 
 press "w-a-s-d" to move the camera viewpoint
